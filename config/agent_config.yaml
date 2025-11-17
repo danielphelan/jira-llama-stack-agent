@@ -1,0 +1,173 @@
+# Jira-Confluence Requirements Analysis Agent Configuration
+# Version: 1.0.0
+
+agent:
+  name: "jira-confluence-requirements-agent"
+  version: "1.0.0"
+  description: "AI-powered requirements analysis and technical specification agent"
+
+llama_stack:
+  # Model configuration
+  model:
+    name: "meta-llama/Llama-3.3-70B-Instruct"
+    model_id: "meta-llama/Llama-3.3-70B-Instruct"
+    temperature: 0.7
+    max_tokens: 4096
+    top_p: 0.9
+
+  # Memory and vector store configuration
+  memory:
+    provider: "chromadb"
+    collection_name: "project_knowledge"
+    embedding_model: "sentence-transformers/all-MiniLM-L6-v2"
+    persist_directory: "./data/chroma"
+
+  # Safety layer configuration
+  safety:
+    enabled: true
+    model: "llama-guard-3-8b"
+    shield_level: "medium"
+
+  # Inference provider
+  inference:
+    provider: "meta-llama"
+    base_url: "http://localhost:5000"  # Llama Stack server URL
+
+atlassian:
+  # MCP Server Configuration
+  mcp_server:
+    enabled: true
+    transport: "sse"  # or "stdio"
+
+  # Cloud ID (auto-discovered if not provided)
+  cloud_id: null  # Will be auto-discovered from environment
+
+  # Default Confluence space for technical specs
+  confluence:
+    default_space_key: "TECH"
+    tech_spec_template_id: null
+
+  # Jira configuration
+  jira:
+    default_project_key: null  # Will be detected from tickets
+
+features:
+  # Auto-analysis on story creation/update
+  auto_analysis:
+    enabled: true
+    trigger_on_story_create: true
+    trigger_on_story_update: true
+    min_confidence_to_auto_comment: 0.70
+
+  # Auto-generation features
+  auto_generation:
+    description:
+      enabled: true
+      require_approval: true
+      confidence_threshold: 0.75
+      max_length: 2000
+
+    acceptance_criteria:
+      enabled: true
+      require_approval: true
+      confidence_threshold: 0.80
+      min_criteria_count: 3
+      max_criteria_count: 15
+
+  # Estimation configuration
+  estimation:
+    enabled: true
+    historical_window_days: 180
+    min_similar_stories: 3
+    story_point_scale: [1, 2, 3, 5, 8, 13]
+    default_story_points: 3
+
+  # Test case generation
+  test_generation:
+    enabled: true
+    include_unit_tests: true
+    include_integration_tests: true
+    include_e2e_tests: true
+    min_test_cases_per_ac: 2
+
+  # Technical specification generation
+  technical_specs:
+    enabled: true
+    auto_generate_for_epics: true
+    include_architecture_diagrams: true
+    include_sequence_diagrams: true
+    include_test_strategy: true
+
+  # Similarity search
+  similarity_search:
+    enabled: true
+    max_results: 10
+    min_similarity_score: 0.60
+    search_confluence: true
+    search_jira: true
+
+workflow:
+  # Status transitions
+  story_status_after_analysis: "Ready for Estimation"
+  epic_status_after_spec: "Ready for Planning"
+  require_approval_statuses: ["In Analysis", "Needs Review"]
+
+  # Automation flags
+  auto_transition_status: false
+  auto_assign_story_points: false
+  auto_link_tickets: true
+  auto_create_confluence_pages: true
+
+notifications:
+  slack:
+    enabled: false
+    webhook_url: null
+    notify_on_analysis_complete: true
+    notify_on_spec_created: true
+
+  email:
+    enabled: false
+    smtp_server: null
+    smtp_port: 587
+
+thresholds:
+  # Quality thresholds
+  completeness_score_minimum: 7.0
+  estimation_confidence_minimum: 0.70
+  similarity_score_minimum: 0.60
+  test_coverage_minimum: 0.85
+
+  # Performance thresholds
+  max_analysis_time_seconds: 30
+  max_spec_generation_time_seconds: 120
+
+customization:
+  # Team-specific weights (can be extended per team)
+  default_estimation_weights:
+    api_complexity: 1.0
+    database_changes: 1.0
+    ui_complexity: 1.0
+    testing_complexity: 1.0
+    integration_complexity: 1.0
+
+  # Story point fibonacci scale
+  use_fibonacci_scale: true
+
+  # Test frameworks by language
+  test_frameworks:
+    javascript: "jest"
+    typescript: "jest"
+    python: "pytest"
+    java: "junit"
+    go: "testing"
+
+logging:
+  level: "INFO"
+  format: "json"
+  output: "stdout"
+  log_file: "./logs/agent.log"
+
+monitoring:
+  enabled: true
+  metrics_port: 9090
+  health_check_enabled: true
