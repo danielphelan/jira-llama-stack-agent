@@ -1,6 +1,13 @@
-# Llama Stack and AI
+# Model Providers (install based on your choice)
+# Llama Stack (Meta's framework)
 llama-stack-client>=0.0.50
 llama-stack>=0.0.50
+
+# OpenAI (for GPT models) - Optional
+# Uncomment if using OpenAI provider
+# openai>=1.12.0
+
+# Note: Ollama provider uses aiohttp (already included below)
 
 # Vector Store and Embeddings
 chromadb>=0.4.22

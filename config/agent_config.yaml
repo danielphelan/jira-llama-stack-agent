@@ -6,32 +6,48 @@ agent:
   version: "1.0.0"
   description: "AI-powered requirements analysis and technical specification agent"
 
-llama_stack:
-  # Model configuration
-  model:
-    name: "meta-llama/Llama-3.3-70B-Instruct"
-    model_id: "meta-llama/Llama-3.3-70B-Instruct"
+# Model Provider Configuration
+# Choose from: ollama, llama_stack, openai
+model_provider:
+  # Active provider (uncomment one)
+  provider: "ollama"  # Options: ollama, llama_stack, openai
+
+  # Ollama Configuration (for local models)
+  ollama:
+    model_name: "llama3.3:70b"  # Or: llama3.1:8b, mixtral:8x7b, etc.
+    base_url: "http://localhost:11434"
     temperature: 0.7
     max_tokens: 4096
     top_p: 0.9
 
-  # Memory and vector store configuration
-  memory:
-    provider: "chromadb"
-    collection_name: "project_knowledge"
-    embedding_model: "sentence-transformers/all-MiniLM-L6-v2"
-    persist_directory: "./data/chroma"
+  # Llama Stack Configuration (Meta's framework)
+  llama_stack:
+    model_name: "meta-llama/Llama-3.3-70B-Instruct"
+    base_url: "http://localhost:5000"
+    temperature: 0.7
+    max_tokens: 4096
+    top_p: 0.9
 
-  # Safety layer configuration
-  safety:
-    enabled: true
-    model: "llama-guard-3-8b"
-    shield_level: "medium"
+  # OpenAI Configuration (for GPT models)
+  openai:
+    model_name: "gpt-4"  # Or: gpt-4-turbo, gpt-3.5-turbo, etc.
+    api_key: "${OPENAI_API_KEY}"  # Set in environment or .env
+    base_url: null  # Optional: for OpenAI-compatible APIs
+    temperature: 0.7
+    max_tokens: 4096
 
-  # Inference provider
-  inference:
-    provider: "meta-llama"
-    base_url: "http://localhost:5000"  # Llama Stack server URL
+# Memory and vector store configuration
+memory:
+  provider: "chromadb"
+  collection_name: "project_knowledge"
+  embedding_model: "sentence-transformers/all-MiniLM-L6-v2"
+  persist_directory: "./data/chroma"
+
+# Safety layer configuration (Llama Stack only)
+safety:
+  enabled: false  # Only works with llama_stack provider
+  model: "llama-guard-3-8b"
+  shield_level: "medium"
 
 atlassian:
   # MCP Server Configuration

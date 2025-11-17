@@ -7,11 +7,11 @@ all analysis workflows.
 
 import logging
 import yaml
+import os
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-from llama_stack_client import LlamaStackClient
-
+from src.providers import ModelProviderFactory, BaseModelProvider
 from src.integrations.mcp_client import AtlassianMCPClient, get_mcp_client
 from src.integrations.atlassian_tools import AtlassianTools
 from src.agent.tools import AgentTools
@@ -36,37 +36,37 @@ class RequirementsAgent:
         self,
         config_path: str = "config/agent_config.yaml",
         llama_stack_url: Optional[str] = None,
-        cloud_id: Optional[str] = None
+        cloud_id: Optional[str] = None,
+        provider_override: Optional[str] = None
     ):
         """
         Initialize the Requirements Agent.
 
         Args:
             config_path: Path to agent configuration file
-            llama_stack_url: Llama Stack server URL (from config if None)
+            llama_stack_url: Legacy parameter for backward compatibility (deprecated)
             cloud_id: Atlassian cloud ID (auto-discovered if None)
+            provider_override: Override configured provider (e.g., "ollama", "llama_stack", "openai")
         """
         self.config = self._load_config(config_path)
 
-        # Initialize Llama Stack client
-        llama_url = llama_stack_url or self.config.get("llama_stack", {}).get("inference", {}).get("base_url", "http://localhost:5000")
-        self.llama_client = LlamaStackClient(base_url=llama_url)
+        # Initialize model provider using the factory pattern
+        self.model_provider = self._initialize_provider(provider_override, llama_stack_url)
 
-        # Initialize MCP client
-        self.mcp_client = get_mcp_client(llama_stack_url=llama_url, cloud_id=cloud_id)
+        # Initialize MCP client (still needs base URL for backward compatibility)
+        base_url = self._get_base_url_for_mcp(llama_stack_url)
+        self.mcp_client = get_mcp_client(llama_stack_url=base_url, cloud_id=cloud_id)
 
         # Initialize Atlassian tools
         self.atlassian = AtlassianTools(self.mcp_client)
 
-        # Initialize agent tools
-        model_name = self.config.get("llama_stack", {}).get("model", {}).get("name", "meta-llama/Llama-3.3-70B-Instruct")
+        # Initialize agent tools with model provider
         self.tools = AgentTools(
-            llama_client=self.llama_client,
-            atlassian_tools=self.atlassian,
-            model_name=model_name
+            model_provider=self.model_provider,
+            atlassian_tools=self.atlassian
         )
 
-        logger.info("Requirements Agent initialized successfully")
+        logger.info(f"Requirements Agent initialized with {self.model_provider.__class__.__name__}")
 
     def _load_config(self, config_path: str) -> Dict[str, Any]:
         """
@@ -86,6 +86,85 @@ class RequirementsAgent:
         except Exception as e:
             logger.warning(f"Failed to load config from {config_path}: {e}")
             return {}
+
+    def _initialize_provider(
+        self,
+        provider_override: Optional[str] = None,
+        llama_stack_url: Optional[str] = None
+    ) -> BaseModelProvider:
+        """
+        Initialize the model provider based on configuration.
+
+        Args:
+            provider_override: Override the configured provider
+            llama_stack_url: Legacy URL parameter (for backward compatibility)
+
+        Returns:
+            Initialized model provider instance
+        """
+        # Get provider configuration
+        provider_config = self.config.get("model_provider", {})
+
+        # Determine which provider to use
+        provider_type = provider_override or provider_config.get("provider", "ollama")
+
+        # Get provider-specific config
+        provider_settings = provider_config.get(provider_type, {})
+
+        # Handle environment variable substitution for API keys
+        if "api_key" in provider_settings:
+            api_key = provider_settings["api_key"]
+            if isinstance(api_key, str) and api_key.startswith("${") and api_key.endswith("}"):
+                env_var = api_key[2:-1]
+                provider_settings["api_key"] = os.getenv(env_var)
+
+        # Override base_url if llama_stack_url provided (backward compatibility)
+        if llama_stack_url and provider_type == "llama_stack":
+            provider_settings["base_url"] = llama_stack_url
+
+        # Build final config for factory
+        factory_config = {
+            "provider": provider_type,
+            **provider_settings
+        }
+
+        try:
+            provider = ModelProviderFactory.create(factory_config)
+            logger.info(f"Initialized {provider_type} provider with model: {provider.get_model_name()}")
+            return provider
+        except Exception as e:
+            logger.error(f"Failed to initialize {provider_type} provider: {e}")
+            # Fallback to Ollama with default settings
+            logger.warning("Falling back to Ollama provider with default settings")
+            fallback_config = {
+                "provider": "ollama",
+                "model_name": "llama3.3:70b",
+                "base_url": "http://localhost:11434",
+                "temperature": 0.7,
+                "max_tokens": 4096
+            }
+            return ModelProviderFactory.create(fallback_config)
+
+    def _get_base_url_for_mcp(self, llama_stack_url: Optional[str] = None) -> str:
+        """
+        Get base URL for MCP client (for backward compatibility).
+
+        Args:
+            llama_stack_url: Optional override URL
+
+        Returns:
+            Base URL string
+        """
+        if llama_stack_url:
+            return llama_stack_url
+
+        # Try to get from provider config
+        provider_config = self.config.get("model_provider", {})
+        provider_type = provider_config.get("provider", "ollama")
+
+        # Get the base URL from the active provider's config
+        provider_settings = provider_config.get(provider_type, {})
+        return provider_settings.get("base_url", "http://localhost:5000")
 
     async def analyze_story(
         self,
@@ -319,7 +398,7 @@ class RequirementsAgent:
         """
         health = {
             "mcp_connection": False,
-            "llama_stack": False,
+            "model_provider": False,
             "overall": False
         }
 
@@ -327,10 +406,10 @@ class RequirementsAgent:
             # Check MCP connection
             health["mcp_connection"] = await self.mcp_client.test_connection()
 
-            # Check Llama Stack (would implement actual health check)
-            health["llama_stack"] = True  # Placeholder
+            # Check model provider
+            health["model_provider"] = await self.model_provider.health_check()
 
-            health["overall"] = health["mcp_connection"] and health["llama_stack"]
+            health["overall"] = health["mcp_connection"] and health["model_provider"]
 
         except Exception as e:
             logger.error(f"Health check failed: {e}")
