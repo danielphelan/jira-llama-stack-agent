@@ -1,6 +1,6 @@
 # Jira-Confluence Requirements Analysis Agent
 
-An intelligent AI agent built on the **Llama Stack framework** that automates requirements analysis, complexity estimation, and technical specification generation for software development teams.
+An intelligent AI agent that automates requirements analysis, complexity estimation, and technical specification generation for software development teams. Supports multiple model providers: **Ollama**, **Llama Stack**, and **OpenAI**.
 
 ## 🎯 Overview
 
@@ -57,11 +57,16 @@ This agent deeply integrates with **Atlassian's Jira and Confluence** platforms 
 
 1. **Python 3.11+**
 2. **Node.js 18+** (for Atlassian MCP Server)
-3. **Llama Stack** installed and running
+3. **Model Provider** - Choose one:
+   - **Ollama** (recommended for local development) - [Installation guide](https://ollama.ai)
+   - **Llama Stack** (Meta's framework) - See installation below
+   - **OpenAI** (cloud-based) - Requires API key
 4. **Atlassian Account** with:
    - Jira Cloud instance
    - Confluence Cloud instance
    - API token ([Create one here](https://id.atlassian.com/manage-profile/security/api-tokens))
+
+> 📖 **See [Model Provider Configuration Guide](docs/MODEL_PROVIDERS.md)** for detailed setup instructions for each provider.
 
 ### Step 1: Clone Repository
 
@@ -108,31 +113,67 @@ nano .env  # or your preferred editor
 ATLASSIAN_INSTANCE_URL=https://your-domain.atlassian.net
 ATLASSIAN_EMAIL=your-email@company.com
 ATLASSIAN_API_TOKEN=your-api-token-here
-
-# Llama Stack Configuration
-LLAMA_STACK_BASE_URL=http://localhost:5000
-
-# Optional: Model Configuration
-MODEL_NAME=meta-llama/Llama-3.3-70B-Instruct
 ```
 
-### Step 5: Install and Start Llama Stack
+### Step 5: Configure Model Provider
+
+The agent supports three model providers. Choose one based on your needs:
+
+#### Option A: Ollama (Recommended for Development)
 
 ```bash
-# Install Llama Stack if not already installed
-pip install llama-stack llama-stack-client
+# Install Ollama
+# Visit https://ollama.ai for installation instructions
 
-# Initialize Llama Stack project (if first time)
-llama stack init requirements-agent
+# Pull a model
+ollama pull llama3.3:70b  # Or llama3.1:8b for faster/smaller
 
-# Download and configure Llama 3.3 70B model
-llama stack download-model meta-llama/Llama-3.3-70B-Instruct
+# Start Ollama (usually starts automatically)
+ollama serve
 
-# Start Llama Stack server
-llama stack run --config config/agent_config.yaml --mcp-config config/mcp_config.json
+# Configure in config/agent_config.yaml
+model_provider:
+  provider: "ollama"
+  ollama:
+    model_name: "llama3.3:70b"
+    base_url: "http://localhost:11434"
 ```
 
-**Note:** The Llama Stack server must be running before using the agent.
+#### Option B: Llama Stack
+
+```bash
+# Install Llama Stack
+pip install llama-stack llama-stack-client
+
+# Download model
+llama stack download-model meta-llama/Llama-3.3-70B-Instruct
+
+# Start server
+llama-stack-server --port 5000
+
+# Configure in config/agent_config.yaml
+model_provider:
+  provider: "llama_stack"
+  llama_stack:
+    model_name: "meta-llama/Llama-3.3-70B-Instruct"
+    base_url: "http://localhost:5000"
+```
+
+#### Option C: OpenAI
+
+```bash
+# Set API key
+export OPENAI_API_KEY=sk-your-api-key-here
+
+# Configure in config/agent_config.yaml
+model_provider:
+  provider: "openai"
+  openai:
+    model_name: "gpt-4"
+    api_key: "${OPENAI_API_KEY}"
+```
+
+> 📖 **See [Model Provider Configuration Guide](docs/MODEL_PROVIDERS.md)** for complete setup instructions, model recommendations, and performance comparisons.
 
 ## 🚀 Quick Start
 

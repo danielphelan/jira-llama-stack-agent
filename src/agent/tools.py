@@ -10,8 +10,7 @@ import logging
 from typing import Any, Dict, List, Optional
 from dataclasses import dataclass, asdict
 
-from llama_stack_client import LlamaStackClient
-
+from src.providers import BaseModelProvider, ChatMessage, MessageRole
 from src.integrations.atlassian_tools import AtlassianTools, JiraIssue
 from src.prompts.task_prompts import (
     STORY_ANALYSIS_PROMPT,
@@ -77,27 +76,24 @@ class AgentTools:
     """
     High-level analysis tools for the requirements agent.
 
-    These tools use the Llama Stack LLM with prompts to perform
+    These tools use the model provider abstraction with prompts to perform
     complex analysis tasks.
     """
 
     def __init__(
         self,
-        llama_client: LlamaStackClient,
-        atlassian_tools: AtlassianTools,
-        model_name: str = "meta-llama/Llama-3.3-70B-Instruct"
+        model_provider: BaseModelProvider,
+        atlassian_tools: AtlassianTools
     ):
         """
         Initialize agent tools.
 
         Args:
-            llama_client: Llama Stack client instance
+            model_provider: Model provider instance (Ollama, Llama Stack, OpenAI, etc.)
             atlassian_tools: Atlassian integration tools
-            model_name: LLM model to use
         """
-        self.llama = llama_client
+        self.model_provider = model_provider
         self.atlassian = atlassian_tools
-        self.model = model_name
 
     async def analyze_user_story(
         self,
@@ -152,24 +148,25 @@ class AgentTools:
 
         # 4. Call LLM for analysis
         try:
-            response = await self.llama.inference.chat_completion(
-                model=self.model,
-                messages=[
-                    {
-                        "role": "system",
-                        "content": "You are an expert requirements analyst. Provide detailed, structured analysis in JSON format."
-                    },
-                    {
-                        "role": "user",
-                        "content": prompt
-                    }
-                ],
+            messages = [
+                ChatMessage(
+                    role=MessageRole.SYSTEM,
+                    content="You are an expert requirements analyst. Provide detailed, structured analysis in JSON format."
+                ),
+                ChatMessage(
+                    role=MessageRole.USER,
+                    content=prompt
+                )
+            ]
+
+            response = await self.model_provider.chat_completion(
+                messages=messages,
                 temperature=0.7,
                 max_tokens=4096
             )
 
             # 5. Parse JSON response
-            content = response.content[0].text if response.content else "{}"
+            content = response.content
 
             # Extract JSON from markdown code blocks if present
             if "```json" in content:
@@ -264,23 +261,24 @@ class AgentTools:
 
         # 5. Call LLM
         try:
-            response = await self.llama.inference.chat_completion(
-                model=self.model,
-                messages=[
-                    {
-                        "role": "system",
-                        "content": "You are an expert at story point estimation. Provide data-driven estimates in JSON format."
-                    },
-                    {
-                        "role": "user",
-                        "content": prompt
-                    }
-                ],
+            messages = [
+                ChatMessage(
+                    role=MessageRole.SYSTEM,
+                    content="You are an expert at story point estimation. Provide data-driven estimates in JSON format."
+                ),
+                ChatMessage(
+                    role=MessageRole.USER,
+                    content=prompt
+                )
+            ]
+
+            response = await self.model_provider.chat_completion(
+                messages=messages,
                 temperature=0.5,  # Lower temperature for more consistent estimates
                 max_tokens=2048
             )
 
-            content = response.content[0].text if response.content else "{}"
+            content = response.content
 
             # Extract JSON
             if "```json" in content:
@@ -365,23 +363,24 @@ class AgentTools:
 
         # 5. Call LLM
         try:
-            response = await self.llama.inference.chat_completion(
-                model=self.model,
-                messages=[
-                    {
-                        "role": "system",
-                        "content": "You are a QA expert. Generate comprehensive test suites in JSON format."
-                    },
-                    {
-                        "role": "user",
-                        "content": prompt
-                    }
-                ],
+            messages = [
+                ChatMessage(
+                    role=MessageRole.SYSTEM,
+                    content="You are a QA expert. Generate comprehensive test suites in JSON format."
+                ),
+                ChatMessage(
+                    role=MessageRole.USER,
+                    content=prompt
+                )
+            ]
+
+            response = await self.model_provider.chat_completion(
+                messages=messages,
                 temperature=0.7,
                 max_tokens=6000  # Tests can be verbose
             )
 
-            content = response.content[0].text if response.content else "{}"
+            content = response.content
 
             # Extract JSON
             if "```json" in content:
