@@ -175,6 +175,21 @@ model_provider:
 
 > 📖 **See [Model Provider Configuration Guide](docs/MODEL_PROVIDERS.md)** for complete setup instructions, model recommendations, and performance comparisons.
 
+## 📚 Documentation
+
+**Complete documentation is available in the `docs/` directory:**
+
+### Quick Links
+
+- 🚀 **[Quick Start Guide](docs/QUICK_START.md)** - Get running in 10 minutes
+- 📖 **[User Guide](docs/USER_GUIDE.md)** - Comprehensive setup and usage
+- 🔧 **[API Reference](docs/guides/API_REFERENCE.md)** - Complete API documentation
+- ⚙️ **[Configuration Reference](docs/guides/CONFIGURATION.md)** - All configuration options
+- 🐛 **[Troubleshooting Guide](docs/guides/TROUBLESHOOTING.md)** - Solutions for common issues
+- 📋 **[Documentation Index](docs/README.md)** - Full documentation navigation
+
+**New users should start with the [Quick Start Guide](docs/QUICK_START.md)!**
+
 ## 🚀 Quick Start
 
 ### Test Connection
